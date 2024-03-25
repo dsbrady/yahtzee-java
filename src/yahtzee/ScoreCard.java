@@ -2,101 +2,108 @@ package yahtzee;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.Map.Entry;
+import java.util.Map;
+import java.util.Set;
+
+import yahtzee.categories.*;
+import yahtzee.scoring.*;
 
 public class ScoreCard {
+	private Section[] sections = {new UpperSection(), new LowerSection()};
+
 	private int totalScore = 0;
-	private static int upperSectionBonus = 35;
-	private LinkedHashMap<String, Integer> upperSection = new LinkedHashMap<String, Integer>(),
-		lowerSection = new LinkedHashMap<String, Integer>();
 
 	public ScoreCard() {
 		initializeScoreCard();
 	}
 
+	private int calculateTotalScore() {
+		int totalScore = 0;
+
+		for(yahtzee.scoring.Section section : sections) {
+			totalScore += section.calculateSubtotal() + (section.getBonusScore() != null ? section.getBonusScore() : 0);
+		}
+
+		return totalScore;
+	}
+
+	public int calculateTurnsRemaining() {
+		return countSectionNulls(sections[0]) + countSectionNulls(sections[1]);
+	}
+
+	private int countSectionNulls(Section section) {
+		LinkedHashMap<String, Category> categories = section.getCategories();
+		Set<Map.Entry<String, Category>> categorySet = categories.entrySet();
+
+		Map.Entry<String, Category> categoryEntry;
+		Iterator<Map.Entry<String, Category>> categoryIterator = categorySet.iterator();
+		var numNullsWrapper = new Object(){int numNulls = 0;};
+
+		while(categoryIterator.hasNext()) {
+			categoryEntry = categoryIterator.next();
+
+			if(categoryEntry.getValue().getScore() == null) {
+				numNullsWrapper.numNulls++;
+			}
+		}
+
+		return numNullsWrapper.numNulls;
+	}
+
 	public void display() {
-		printSection(upperSection, "Upper");
-		printSection(lowerSection, "Lower");
+		for(yahtzee.scoring.Section section : sections) {
+			printSection(section);
+		}
+
 		System.out.println("--------------------------------");
 		System.out.println("GRAND TOTAL: " + getTotalScore());
 		System.out.println("--------------------------------");
 	}
 
-	int calculateTurnsRemaining() {
-		return countSectionNulls(upperSection) + countSectionNulls(lowerSection);
-	}
-
-	private int countSectionNulls(LinkedHashMap<String,Integer> section) {
-		var numNullsWrapper = new Object(){int numNulls = 0;};
-
-		Iterator<Entry<String, Integer>> sectionIterator = section.entrySet().iterator();
-
-		sectionIterator.forEachRemaining(entry -> {
-			System.out.println(entry.getValue());
-			if(entry.getValue() == null) {
-				numNullsWrapper.numNulls++;
-			}
-		});
-
-		return numNullsWrapper.numNulls;
-	}
-
 	private void initializeScoreCard() {
-		initializeUpperSection();
-		initializeLowerSection();
+		for(yahtzee.scoring.Section section : sections) {
+			try {
+				section.populateCategories();
+			} catch(NoSuchMethodException e) {
+				System.out.println(e.getMessage());
+				System.exit(1);
+			}
+		}
+
 		this.totalScore = 0;
+	}
+
+	public Section[] getSections() {
+		return sections;
 	}
 
 	public int getTotalScore() {
 		return totalScore;
 	}
 
-	public static int getUpperSectionBonus() {
-		return upperSectionBonus;
-	}
-
-	private void initializeUpperSection() {
-		this.upperSection.put("Aces",  null);
-		this.upperSection.put("Twos", null);
-		this.upperSection.put("Threes", null);
-		this.upperSection.put("Fours", null);
-		this.upperSection.put("Fives", null);
-		this.upperSection.put("Sixes", null);
-		this.upperSection.put("Subtotal", 0);
-		this.upperSection.put("Bonus", 0);
-		this.upperSection.put("Total", 0);
-	}
-
-	private void initializeLowerSection() {
-		this.lowerSection.put("Three-of-a-Kind", null);
-		this.lowerSection.put("Four-of-a-Kind", null);
-		this.lowerSection.put("Full-House", null);
-		this.lowerSection.put("Small-Straight", null);
-		this.lowerSection.put("Large-Straight", null);
-		this.lowerSection.put("Yahtzee", null);
-		this.lowerSection.put("Chance", null);
-		this.lowerSection.put("Yahtzee-Bonus", 0);
-		this.lowerSection.put("Total", 0);
-	}
-
-	private void printSection(LinkedHashMap<String,Integer> section, String sectionName) {
-		Iterator<Entry<String, Integer>> sectionIterator = section.entrySet().iterator();
+	private void printSection(yahtzee.scoring.Section section) {
+		LinkedHashMap<String, Category> categories = section.getCategories();
+		Map.Entry<String, Category> categoryEntry;
+		Set<Map.Entry<String, Category>> categorySet = categories.entrySet();
+		Iterator<Map.Entry<String, Category>> categoryIterator = categorySet.iterator();
 
 		System.out.println("--------------------------------");
-		System.out.println(sectionName.toUpperCase() + " SECTION");
+		System.out.println(section.getName().toUpperCase() + " SECTION");
 		System.out.println("--------------------------------");
 
-		sectionIterator.forEachRemaining(entry -> {
-			System.out.println(entry.getKey() + ": " + (entry.getValue() == null ? "" : entry.getValue()));
-		});
+		while(categoryIterator.hasNext()) {
+			categoryEntry = categoryIterator.next();
+			System.out.println("(" + categoryEntry.getKey() + ") " + categoryEntry.getValue().getName() + ": " + (categoryEntry.getValue().getScore() == null ? "" : categoryEntry.getValue().getScore()));
+		}
+
+		System.out.println("--------------------------------");
+		System.out.println("Sub-Total: " + section.calculateSubtotal());
+		System.out.println("--------------------------------");
+		System.out.println(section.getBonusName() + ": " + (section.getBonusScore() == null ? "" : section.getBonusScore()));
 	}
 
-	public void setTotalScore(int totalScore) {
-		this.totalScore = totalScore;
-	}
-
-	public static void setUpperSectionBonus(int upperSectionBonus) {
-		ScoreCard.upperSectionBonus = upperSectionBonus;
+	public void updateTotalScore() {
+		this.totalScore = calculateTotalScore();
 	}
 
 }
